@@ -1,0 +1,246 @@
+version: "3.8"
+
+volumes:
+  rabbitmq_data:
+
+services:
+
+  ####################################
+  # RabbitMQ: The messaging broker   
+  ####################################
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: esd-rabbit
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes: 
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  ###################################
+  # Review: The Review microservice
+  ###################################
+  review:
+    build:
+      context: ./
+      dockerfile: review.Dockerfile
+    image: ongjiale/review:v1.0
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      # dbURL: mysql+mysqlconnector://is213:totaly2021@34.87.173.70:3306/review
+      dbURL: mysql+mysqlconnector://is213@host.docker.internal:3306/review
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5001:5001"
+
+  ###################################
+  # User: The User microservice
+  ###################################
+  user:
+    build:
+      context: ./
+      dockerfile: user.Dockerfile
+    image: ongjiale/user:v1.0
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      # dbURL: mysql+mysqlconnector://is213:totaly2021@34.87.173.70:3306/user
+      dbURL: mysql+mysqlconnector://is213@host.docker.internal:3306/user
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5002:5002"
+
+  #######################################################
+  # Transaction: The Transaction microservice
+  #######################################################
+  transaction:
+    build:
+      context: ./
+      dockerfile: transaction.Dockerfile
+    image: ongjiale/transaction:v1.0
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      # dbURL: mysql+mysqlconnector://is213:totaly2021@34.87.173.70:3306/transaction
+      dbURL: mysql+mysqlconnector://is213@host.docker.internal:3306/transaction
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5003:5003"
+
+  #######################################################
+  # Notification: The Notification microservice
+  #######################################################
+  notification:
+    build:
+      context: ./
+      dockerfile: notification.Dockerfile
+    image: ongjiale/notification:v1.0
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5004:5004"
+
+  #################################################
+  # Log: The Log microservice
+  #################################################
+  log:
+    build:
+      context: ./
+      dockerfile: log.Dockerfile
+    image: ongjiale/log:v1.1
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      # dbURL: mysql+mysqlconnector://is213:totaly2021@34.87.173.70:3306/log
+      dbURL: mysql+mysqlconnector://is213@host.docker.internal:3306/log
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5005:5005"
+
+  #################################################
+  # Error: The Error microservice
+  #################################################
+  error:
+    build:
+      context: ./
+      dockerfile: error.Dockerfile
+    image: ongjiale/error:v1.1
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      # dbURL: mysql+mysqlconnector://is213:totaly2021@34.87.173.70:3306/error
+      dbURL: mysql+mysqlconnector://is213@host.docker.internal:3306/error
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5006:5006"
+
+  ###############################################
+  # Payment: The Payment microservice
+  ###############################################
+  payment:
+    build:
+      context: ./
+      dockerfile: payment.Dockerfile
+    image: ongjiale/payment:v1.0
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5101:5101"
+
+
+  ###############################################
+  # Upload: The Upload microservice
+  ###############################################
+  upload:
+    build:
+      context: ./
+      dockerfile: upload.Dockerfile
+    image: ongjiale/upload:v1.0
+    restart: always
+    depends_on:
+      - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5102:5102"
+
+  ###############################################
+  # Manage Review: The Manage Review microservice
+  ###############################################
+  manage_review:
+    build:
+      context: ./
+      dockerfile: manage_review.Dockerfile
+    image: ongjiale/manage_review:v1.1
+    restart: always
+    depends_on:
+      - user
+      - review
+      - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      review_URL: http://review:5001/review
+      user_URL: http://user:5002/user
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5201:5201"
+
+  ###############################################
+  # Redemption: The Redemption microservice
+  ###############################################
+  redemption:
+    build:
+      context: ./
+      dockerfile: redemption.Dockerfile
+    image: ongjiale/redemption:v1.0
+    restart: always
+    depends_on:
+      - payment
+      - user
+      - transaction
+      - notification
+      - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      payment_URL: http://payment:5101/payment
+      user_URL: http://user:5002/user
+      transaction_URL: http://transaction:5003/transaction
+      notification_URL: http://notification:5004
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5202:5202"
+
+  ###############################################
+  # Store Review: The Store Review microservice
+  ###############################################
+  store_review:
+    build:
+      context: ./
+      dockerfile: store_review.Dockerfile
+    image: ongjiale/store_review:v1.1
+    restart: always
+    depends_on:
+      - upload
+      - review
+      - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      review_URL: http://review:5001/review
+      upload_URL: http://upload:5102/upload
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5203:5203"
+
+
